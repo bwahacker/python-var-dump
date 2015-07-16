@@ -52,8 +52,50 @@ def display(o, space, num, key, typ):
 
     print(st % tuple(l))
 
+#
+# Dumb little state addition to deal with dumping huge python data structures.
+#
+class _State:
+    def __init__(self, md):
+        if md is None:
+            md = -1
 
-def dump(o, space, num, key, typ):
+        self._max_depth = md 
+        self._depth = 0
+        self.last_printed_more_msg = False
+        self.visited = []
+
+    def inc_depth(self):
+        self._depth += 1
+
+    def dec_depth(self):
+        self._depth -= 1
+    
+    def traverse_current(self):
+        return (self._max_depth > 0) and (self._depth < self._max_depth)
+
+    def reset_print_marker(self):
+        self.last_printed_more_msg = False
+
+    def add_visited_object(self, o):
+        self.visited.append(o)
+
+    def has_visited_object(self, o):
+        return o in self.visited
+
+def dump(state, o, space, num, key, typ):
+    if not state.traverse_current():
+        if not state.last_printed_more_msg:
+            print("%s [and possibly more here]" % (" " * (space + TAB_SIZE)))
+        state.last_printed_more_msg = True
+        return
+
+    if state.has_visited_object(o):
+        print("%s [skipping object found in a cycle?]" % (" " * (space + TAB_SIZE)))
+        return
+
+    state.add_visited_object(o)
+    state.reset_print_marker()
 
     if type(o) in (str, int, float, long, bool, NoneType, unicode):
         display(o, space, num, key, typ)
@@ -68,19 +110,27 @@ def dump(o, space, num, key, typ):
             typ = object
         for i in o:
             space += TAB_SIZE
+            state.inc_depth()
             if type(o) is dict:
-                dump(o[i], space, num, i, typ)
+                dump(state, o[i], space, num, i, typ)
             else:
-                dump(i, space, num, '', typ)
+                dump(state, i, space, num, '', typ)
             num += 1
             space -= TAB_SIZE
+            state.dec_depth()
 
-
-def var_dump(*obs):
+def var_dump(*obs, **kwargs):
     """
       shows structured information of a object, list, tuple etc
+
+      pass max_depth=<number> to prevent super deep recursive traversal.
+
+      TODO:  Need to keep a stack and not let circular references cause infinite loops
     """
+    max_depth = kwargs.get('max_depth')
+    state = _State(max_depth)
     i = 0
     for x in obs:
-        dump(x, 0, i, '', object)
+        print("greetings")
+        dump(state, x, 0, i, '', object)
         i += 1
