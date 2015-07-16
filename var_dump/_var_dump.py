@@ -72,7 +72,9 @@ class _State:
         self._depth -= 1
     
     def traverse_current(self):
-        return (self._max_depth > 0) and (self._depth < self._max_depth)
+        if self._max_depth <= 0:
+            return True
+        return self._depth < self._max_depth
 
     def reset_print_marker(self):
         self.last_printed_more_msg = False
